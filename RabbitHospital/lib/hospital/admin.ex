@@ -24,12 +24,10 @@ defmodule Hospital.Admin do
   def init(opts) do
     {:ok, connection} = AMQP.Connection.open()
     {:ok, channel} = AMQP.Channel.open(connection)
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec1])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec2])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec3])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec4])
+
+    Enum.map(opts, fn {_, q_name} -> AMQP.Queue.declare(channel, q_name) end)
+
     {:ok, tag} = AMQP.Basic.consume(channel, opts[:spec4])
-    
 
     AMQP.Exchange.declare(channel, "with_logs", :direct)
     AMQP.Exchange.declare(channel, "admin_says", :direct)
@@ -39,7 +37,7 @@ defmodule Hospital.Admin do
       AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: q_name)
     end
 
-    {:ok, %{connection: connection, channel: channel, tag: tag, opts: opts}}
+    {:ok, %{connection: connection, channel: channel, tag: [tag], opts: opts}}
   end
 
   def handle_info({:basic_consume_ok, _msg}, state) do
@@ -47,27 +45,23 @@ defmodule Hospital.Admin do
   end
 
   def handle_info({:basic_deliver, message, meta}, state) do
-    IO.puts(message)
+    IO.puts("[LOG] #{message}")
     AMQP.Basic.ack(state.channel, meta.delivery_tag)
     {:noreply, state}
   end
 
-  def handle_info(_msg, state) do
-    IO.puts "random msg"
+  def handle_info({:basic_deliver_ok, _message, _meta}, state) do
     {:noreply, state}
   end
 
   def handle_cast({:global, msg}, state) do
-    AMQP.Basic.publish(state.channel, "admin_says","admin", msg)
+    AMQP.Basic.publish(state.channel, "admin_says", "admin", msg)
     {:noreply, state}
   end
 
   def terminate(_reason, state) do
-    {:ok, _} = AMQP.Queue.delete(state.channel, state.opts[:spec1])
-    {:ok, _} = AMQP.Queue.delete(state.channel, state.opts[:spec2])
-    {:ok, _} = AMQP.Queue.delete(state.channel, state.opts[:spec3])
-    {:ok, _} = AMQP.Queue.delete(state.channel, state.opts[:spec4])
-    AMQP.Basic.cancel(state.channel, state.tag)
+    Enum.map(state.tag, fn x -> Hospital.Utils.cancel(state.channel, x) end)
+    Enum.map(state.opts, fn {_, q_name} -> AMQP.Queue.delete(state.channel, q_name) end)
     AMQP.Channel.close(state.channel)
     AMQP.Connection.close(state.connection)
   end

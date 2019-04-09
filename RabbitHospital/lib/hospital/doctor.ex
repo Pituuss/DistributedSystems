@@ -20,34 +20,24 @@ defmodule Hospital.Doctor do
   end
 
   ## Server callbacks
-  def terminate(_reason, state) do
-    AMQP.Basic.cancel(state.channel, state.tag)
-    AMQP.Queue.delete(state.channel, state.queue)
-    AMQP.Channel.close(state.channel)
-    AMQP.Connection.close(state.connection)
-  end
 
   def init(opts) do
     {:ok, connection} = AMQP.Connection.open()
     {:ok, channel} = AMQP.Channel.open(connection)
-
     {:ok, %{queue: queue_name}} = AMQP.Queue.declare(channel, "", exclusive: true)
-    {:ok, tag} = AMQP.Basic.consume(channel, queue_name, nil, no_ack: true)
+    {:ok, tag} = AMQP.Basic.consume(channel, queue_name)
 
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec1])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec2])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec3])
-    {:ok, _} = AMQP.Queue.declare(channel, opts[:spec4])
+    Enum.map(opts, fn {_, q_name} -> AMQP.Queue.declare(channel, q_name) end)
 
     :ok = AMQP.Exchange.declare(channel, "with_logs", :direct)
 
-    for {_, q_name} <- opts do
+    AMQP.Exchange.declare(channel, "admin_says", :direct)
+    AMQP.Queue.bind(channel, queue_name, "admin_says", routing_key: "admin")
+
+    for {_, q_name} <- [queue_name | opts] do
       AMQP.Queue.bind(channel, q_name, "with_logs", routing_key: q_name)
       AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: q_name)
     end
-
-    AMQP.Exchange.declare(channel, "admin_says", :direct)
-    AMQP.Queue.bind(channel,queue_name,"admin_says",routing_key: "admin")
 
     {:ok,
      %{
@@ -69,15 +59,26 @@ defmodule Hospital.Doctor do
     {:noreply, state}
   end
 
-  def handle_info(msg, state) do
-    IO.puts msg
+  def handle_info({:basic_deliver_ok, _message, _meta}, state) do
+    {:noreply, state}
+  end
+
+  def handle_info(_msg, state) do
+    # IO.puts msg
     {:noreply, state}
   end
 
   def handle_cast({:request, name, type}, state) do
     message = "#{name} #{type}"
-    AMQP.Basic.publish(state.channel, "with_logs",type, message,reply_to: state.queue)
-    IO.puts "Send request [#{type}] #{message}"
+    AMQP.Basic.publish(state.channel, "with_logs", type, message, reply_to: state.queue)
+    IO.puts("Send request [#{type}] #{message}")
     {:noreply, state}
+  end
+
+  def terminate(_reason, state) do
+    Enum.map(state.tag, fn x -> Hospital.Utils.cancel(state.channel, x) end)
+    AMQP.Queue.delete(state.channel, state.queue)
+    AMQP.Channel.close(state.channel)
+    AMQP.Connection.close(state.connection)
   end
 end
