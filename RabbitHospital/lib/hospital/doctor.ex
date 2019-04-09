@@ -2,6 +2,9 @@ defmodule Hospital.Doctor do
   use GenServer
   ## client API
 
+  # TODO create msg
+  # :erlant.term_....
+
   def start() do
     GenServer.start_link(__MODULE__, [
       {:spec1, "knee"},
@@ -29,15 +32,16 @@ defmodule Hospital.Doctor do
 
     Enum.map(opts, fn {_, q_name} -> AMQP.Queue.declare(channel, q_name) end)
 
-    :ok = AMQP.Exchange.declare(channel, "with_logs", :direct)
+    :ok = AMQP.Exchange.declare(channel, "with_logs", :topic)
 
-    AMQP.Exchange.declare(channel, "admin_says", :direct)
-    AMQP.Queue.bind(channel, queue_name, "admin_says", routing_key: "admin")
+    AMQP.Exchange.declare(channel, "admin_says", :fanout)
+    AMQP.Queue.bind(channel, queue_name, "admin_says")
 
-    for {_, q_name} <- [queue_name | opts] do
-      AMQP.Queue.bind(channel, q_name, "with_logs", routing_key: q_name)
-      AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: q_name)
+    for {_, q_name} <- [{:self_queue_name, "#{queue_name}"} | opts] do
+      AMQP.Queue.bind(channel, q_name, "with_logs", routing_key: "#{q_name}.#")
     end
+
+    AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: "#.log")
 
     {:ok,
      %{
@@ -70,7 +74,7 @@ defmodule Hospital.Doctor do
 
   def handle_cast({:request, name, type}, state) do
     message = "#{name} #{type}"
-    AMQP.Basic.publish(state.channel, "with_logs", type, message, reply_to: state.queue)
+    AMQP.Basic.publish(state.channel, "with_logs", "#{type}.log", message, reply_to: state.queue)
     IO.puts("Send request [#{type}] #{message}")
     {:noreply, state}
   end

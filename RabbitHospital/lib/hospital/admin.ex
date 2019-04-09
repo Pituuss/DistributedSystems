@@ -29,12 +29,12 @@ defmodule Hospital.Admin do
 
     {:ok, tag} = AMQP.Basic.consume(channel, opts[:spec4])
 
-    AMQP.Exchange.declare(channel, "with_logs", :direct)
-    AMQP.Exchange.declare(channel, "admin_says", :direct)
+    AMQP.Exchange.declare(channel, "with_logs", :topic)
+    AMQP.Exchange.declare(channel, "admin_says", :fanout)
 
     for {_, q_name} <- opts do
-      AMQP.Queue.bind(channel, q_name, "with_logs", routing_key: q_name)
-      AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: q_name)
+      AMQP.Queue.bind(channel, q_name, "with_logs", routing_key: "#{q_name}.#")
+      AMQP.Queue.bind(channel, opts[:spec4], "with_logs", routing_key: "#.log")
     end
 
     {:ok, %{connection: connection, channel: channel, tag: [tag], opts: opts}}
