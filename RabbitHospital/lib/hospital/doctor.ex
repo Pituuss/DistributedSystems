@@ -2,9 +2,6 @@ defmodule Hospital.Doctor do
   use GenServer
   ## client API
 
-  # TODO create msg
-  # :erlant.term_....
-
   def start() do
     GenServer.start_link(__MODULE__, [
       {:spec1, "knee"},
@@ -57,25 +54,47 @@ defmodule Hospital.Doctor do
     {:noreply, state}
   end
 
-  def handle_info({:basic_deliver, message, meta}, state) do
-    IO.puts(message)
-    AMQP.Basic.ack(state.channel, meta.delivery_tag)
-    {:noreply, state}
-  end
-
   def handle_info({:basic_deliver_ok, _message, _meta}, state) do
     {:noreply, state}
   end
 
-  def handle_info(_msg, state) do
-    # IO.puts msg
+  def handle_info({:basic_deliver, msg, meta}, state) do
+    message = Hospital.Message.from_message(msg)
+
+    case message.message_type do
+      :ann ->
+        IO.puts("*** DOCTOR RECIEVED MESSAGE \n**** #{message.body}")
+
+      :response ->
+        IO.puts(
+          "*** DOCTOR RECIEVED RESPONSE \n**** #{message.examination} #{message.status} #{
+            message.who
+          }"
+        )
+    end
+
+    AMQP.Basic.ack(state.channel, meta.delivery_tag)
     {:noreply, state}
   end
 
   def handle_cast({:request, name, type}, state) do
-    message = "#{name} #{type}"
-    AMQP.Basic.publish(state.channel, "with_logs", "#{type}.log", message, reply_to: state.queue)
-    IO.puts("Send request [#{type}] #{message}")
+    message = %Hospital.Message{
+      name: name,
+      message_type: :request,
+      examination: type,
+      status: "not done",
+      who: name
+    }
+
+    AMQP.Basic.publish(
+      state.channel,
+      "with_logs",
+      "#{type}.log",
+      Hospital.Message.to_message(message),
+      reply_to: state.queue
+    )
+
+    IO.puts("Send request [#{type}]")
     {:noreply, state}
   end
 

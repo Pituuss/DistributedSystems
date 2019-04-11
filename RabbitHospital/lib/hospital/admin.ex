@@ -44,8 +44,9 @@ defmodule Hospital.Admin do
     {:noreply, state}
   end
 
-  def handle_info({:basic_deliver, message, meta}, state) do
-    IO.puts("[LOG] #{message}")
+  def handle_info({:basic_deliver, msg, meta}, state) do
+    message = Hospital.Message.from_message(msg)
+    IO.puts("[LOG] #{message.who} #{message.examination} #{message.status}")
     AMQP.Basic.ack(state.channel, meta.delivery_tag)
     {:noreply, state}
   end
@@ -55,7 +56,8 @@ defmodule Hospital.Admin do
   end
 
   def handle_cast({:global, msg}, state) do
-    AMQP.Basic.publish(state.channel, "admin_says", "admin", msg)
+    message = %Hospital.Message{message_type: :ann, body: msg}
+    AMQP.Basic.publish(state.channel, "admin_says", "", Hospital.Message.to_message(message))
     {:noreply, state}
   end
 

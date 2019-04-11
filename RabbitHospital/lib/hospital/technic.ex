@@ -30,19 +30,20 @@ defmodule Hospital.Technic do
     end
 
     AMQP.Exchange.declare(channel, "admin_says", :fanout)
+
     {:ok, %{queue: queue_name}} = AMQP.Queue.declare(channel, "", exclusive: true)
 
     AMQP.Queue.bind(channel, queue_name, "admin_says")
 
-    {:ok, %{queue: queue_name}} = AMQP.Queue.declare(channel, "", exclusive: true)
-    {:ok, tag} = AMQP.Basic.consume(channel, queue_name, nil, no_ack: true)
+    {:ok, tag} = AMQP.Basic.consume(channel, queue_name)
 
     {:ok,
      %{
        connection: connection,
        channel: channel,
        log_to: opts[:spec4],
-       tag: [tag, tag1, tag2]
+       tag: [tag, tag1, tag2],
+       opts: opts
      }}
   end
 
@@ -55,10 +56,33 @@ defmodule Hospital.Technic do
   end
 
   def handle_info({:basic_deliver, msg, meta}, state) do
-    IO.puts("*** TECHNIC RECIEVED REQUEST")
-    r_key = "#{meta.reply_to}.log"
-    AMQP.Basic.publish(state.channel, "with_logs", r_key, "#{msg} done")
-    AMQP.Basic.ack(state.channel, meta.delivery_tag)
+    message = Hospital.Message.from_message(msg)
+
+    case message.message_type do
+      :request ->
+        IO.puts("*** TECHNIC RECIEVED REQUEST\n**** #{message.who} #{message.examination}")
+        r_key = "#{meta.reply_to}.log"
+
+        response = %Hospital.Message{
+          message_type: :response,
+          status: "done",
+          who: message.who,
+          examination: message.examination
+        }
+
+        AMQP.Basic.publish(
+          state.channel,
+          "with_logs",
+          r_key,
+          Hospital.Message.to_message(response)
+        )
+
+      :ann ->
+        IO.puts("*** TECHNIC RECIEVED MESSAGE\n**** #{message.body}")
+
+        AMQP.Basic.ack(state.channel, meta.delivery_tag)
+    end
+
     {:noreply, state}
   end
 
