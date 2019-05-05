@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package exchange.service.protos;
+
+service Exchange {
+    rpc GetRatesUpdates (CurrencyRequest) returns (stream CurrencyRateResponse) {
+    }
+    rpc GetRates (CurrencyRequest) returns (CurrencyRateResponse) {
+    }
+}
+
+enum Currency {
+    USD = 0;
+    GBP = 1;
+    PLN = 2;
+    EUR = 3;
+    CHF = 4;
+}
+
+message CurrencyRequest {
+    repeated Currency currencyList = 1;
+    Currency bankCurrency = 2;
+}
+
+message CurrencyRateResponse {
+    map<string, float> rates = 1;
+}
