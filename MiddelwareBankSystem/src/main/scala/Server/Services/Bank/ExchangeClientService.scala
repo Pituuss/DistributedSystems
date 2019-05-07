@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import db.SimpleDB
 import exchange.service.protos.Exchange.{CurrencyRequest, ExchangeGrpc}
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
-import Server.Syntax._
+import Utils.Syntax._
 import exchange.service.thrift.Currency
 
 import scala.collection.mutable
@@ -31,7 +31,9 @@ class ExchangeClientService private(
         exchangeClient.getRatesUpdates(request)
           .foreach(response ⇒ {
             val update = mutable.Map() ++ response.rates.map { case (k, v) ⇒ (k.stringToGRPC.grpcToThrift, v) }
-            db.updateExchange(update)
+            if (update.nonEmpty) {
+              db.updateExchange(update)
+            }
           })
     ).start()
     

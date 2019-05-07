@@ -29,7 +29,7 @@ class ExchangeRateService (state: ⇒ ExchangeStateService) extends ExchangeGrpc
       last = state.currencyToValue.toMap
       responseObserver.onNext(CurrencyRateResponse(update))
     }
-    scheduler.scheduleAtFixedRate(feed, 0l, 1000l, TimeUnit.MILLISECONDS)
+    scheduler.scheduleAtFixedRate(feed, 0l, 1000, TimeUnit.MILLISECONDS)
   }
   
   override def getRates (request: CurrencyRequest): Future[CurrencyRateResponse] = {

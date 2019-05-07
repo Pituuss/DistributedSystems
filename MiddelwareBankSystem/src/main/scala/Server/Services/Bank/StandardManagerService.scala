@@ -7,6 +7,7 @@ import exchange.service.thrift.{ErrorInOperation, Login, Money, StandardManager}
 class StandardManagerService (db: ⇒ SimpleDB) extends StandardManager.MethodPerEndpoint {
   override def getBalance (login: Login): Future[Money] = {
     if (db.validateAuth(login)) {
+      println(s"*** STANDARD MANAGER GET BALANCE $login")
       db.getMoney(login) match {
         case Right(money) ⇒ Future.value(money)
         case Left(reason) ⇒ Future.exception(ErrorInOperation(reason))

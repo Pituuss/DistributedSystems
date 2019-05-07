@@ -1,7 +1,6 @@
-package Server
+package Utils
 
 import exchange.service.protos.Exchange.Currency
-
 
 object Syntax {
   implicit class GrpcToThrift (currency: Currency) {

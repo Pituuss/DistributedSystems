@@ -13,7 +13,7 @@ class BankServer private(val currencies: List[Currency], bankCurrency: Currency)
   val exchangeClient = ExchangeClientService(exchangeServiceAddress, exchangeServicePort, db)
   exchangeClient.start(currencies, bankCurrency)
   private val registerService = Map(
-    "register" → RegisterUserService(db)
+    "register" → RegisterClientService(db)
   )
   private val accountManagerService = Map(
     "standard" → StandardManagerService(db),
@@ -22,13 +22,14 @@ class BankServer private(val currencies: List[Currency], bankCurrency: Currency)
   
   val registerServer: ListeningServer = ThriftMux
     .server
-    .serveIfaces(address, registerService)
+    .serveIfaces(registerAddress, registerService)
+  System.err.println(s"registerServer started at $registerAddress")
   
   val manageServer: ListeningServer = ThriftMux
     .server
-    .serveIfaces(address, accountManagerService)
+    .serveIfaces(manageAddress, accountManagerService)
   
-  System.err.println(s"Server started at $address")
+  System.err.println(s"manageServer started at $manageAddress")
   
   sys.addShutdownHook {
     System.err.println("*** shutting down Thrift server since JVM is shutting down")
@@ -38,9 +39,10 @@ class BankServer private(val currencies: List[Currency], bankCurrency: Currency)
   }
 }
 object BankServer {
-  def apply (): BankServer = new BankServer(List(Currency.Eur, Currency.Gbp), Currency.Pln)
+  def apply (): BankServer = new BankServer(List(Currency.Eur, Currency.Usd), Currency.Pln)
   
-  private val address = "0.0.0.0:9001"
+  private val registerAddress = "0.0.0.0:9099"
+  private val manageAddress = "0.0.0.0:9091"
   
   private val exchangeServiceAddress = "localhost"
   private val exchangeServicePort = 50051

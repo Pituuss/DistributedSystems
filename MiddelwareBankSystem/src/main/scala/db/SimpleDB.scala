@@ -16,34 +16,55 @@ class SimpleDB private(
   import SimpleDB._
   
   def addUser (personalData: PersonalData, money: Money, accountType: AccountType, passwd: Password): Either[String, RegisterUserReponse] = {
-    if (db.contains(personalData.id))
+    println(s"**** DB ADD USER $personalData $money")
+    if (db.contains(personalData.id)) {
+      println("***** EXCEPTION")
       "user already registered".asLeft
+    }
     else {
-      val account = Account(personalData, money, Password(md5Hash(passwd._1)), accountType)
+      val account = Account(
+        personalData,
+        Money(money.amount * exchange(money.currency), bankCurrency),
+        Password(md5Hash(passwd.password)),
+        accountType
+      )
       db.put(personalData.id, account)
       RegisterUserReponse(passwd, accountType).asRight
     }
   }
   
   def updateExchange (update: mutable.Map[Currency, Float]): Unit = {
+    println(s"**** DB UPDATE EXCHANGE RATES $update")
     update.foreach { case (k, v) ⇒ exchange.put(k, v) }
   }
   
   def updateBalance (id: Id, money: Money): Either[String, String] = {
+    println(s"**** DB UPDATE USER BALANCE $id $money")
     if (!db.contains(id)) {
       "user not found".asLeft
     } else {
       val account = db(id)
-      print("updating balance")
-      db.update(id, account)
+      val balance = Money(db(id).balance.amount + money.amount / exchange(money.currency), bankCurrency)
+      val updatedAccount = Account(
+        account.client,
+        balance,
+        account.passwd,
+        account.accountType
+      )
+      db.update(id, updatedAccount)
       "ok".asRight
     }
     
   }
   
   def validateAuth (login: Login): Boolean = {
-    db.contains(login.id) && db(login.id) == login.passwd
+    db.contains(login.id) && db(login.id).passwd == login.passwd
   }
+  
+  def validateAuthPremium (login: Login): Boolean = {
+    validateAuth(login) && db(login.id).accountType == AccountType.Premium
+  }
+  
   
   def getMoney (login: Login): Either[String, Money] = {
     db.get(login.id) match {
@@ -53,7 +74,7 @@ class SimpleDB private(
   }
 }
 object SimpleDB {
-  def apply (bankCurrency: Currency): SimpleDB = new SimpleDB(mutable.Map[Id, Account](), mutable.Map[Currency, Float](), bankCurrency)
+  def apply (bankCurrency: Currency): SimpleDB = new SimpleDB(mutable.Map[Id, Account](), mutable.Map(bankCurrency → 1f), bankCurrency)
   
   def md5Hash (text: String): String =
     java.security.MessageDigest.getInstance("MD5")

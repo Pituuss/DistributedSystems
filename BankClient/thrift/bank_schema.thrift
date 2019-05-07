@@ -1,4 +1,4 @@
-namespace java exchange.service.thrift
+namespace java bank
 
 
 enum Currency{
@@ -10,7 +10,7 @@ enum Currency{
 }
 
 enum AccountType {
-    Standart = 0,
+    Standard = 0,
     Premium = 1
 }
 
@@ -20,7 +20,7 @@ struct Money{
 }
 
 struct ID{
-    1: string id
+    1: i64 id
 }
 
 struct Login{
@@ -43,11 +43,11 @@ struct Account{
     1: PersonalData client
     2: Money balance
     3: Password passwd
-    4: AccountType type
+    4: AccountType accountType
 }
 struct RegisterUserReponse{
     1: Password passwd
-    2: AccountType type
+    2: AccountType accountType
 }
 
 exception ErrorInOperation{
@@ -66,8 +66,8 @@ struct LoanResponse{
     3: optional Money foreginCurrencyCost
 }
 
-service RegisterUser{
-    RegisterUserReponse register(1:PersonalData person,2:Money initInput) throws (1:ErrorInOperation e)
+service RegisterClient{
+    RegisterUserReponse registerClient(1:PersonalData person, 2:Money initInput) throws (1:ErrorInOperation e)
 }
 
 service StandardManager {

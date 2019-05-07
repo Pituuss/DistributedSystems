@@ -16,11 +16,15 @@ class ExchangeStateService private(val currencyToValue: mutable.Map[Currency, Fl
   val simulation: Runnable = () => {
     for (c <- Currency.values) {
       val value = self.currencyToValue(c)
-      val upd = if (rand.nextFloat > .5) (value - rand.nextFloat * 3).abs else (value + rand.nextFloat * 3).abs
+      val upd = if (rand.nextFloat > .5) {
+        if (rand.nextFloat > .5) (value - rand.nextFloat * 3).abs
+        else (value + rand.nextFloat * 3).abs
+      }
+      else value
       self.currencyToValue.update(c, upd)
     }
   }
-  scheduler.scheduleAtFixedRate(simulation, 0, 1000, TimeUnit.MILLISECONDS)
+  scheduler.scheduleAtFixedRate(simulation, 0, 5000, TimeUnit.MILLISECONDS)
 }
 object ExchangeStateService {
   
