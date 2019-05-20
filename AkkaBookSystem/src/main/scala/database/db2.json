@@ -1,0 +1,22 @@
+[
+  {
+    "title": "The Notebooks of Leonardo Da Vinci",
+    "price": "123 zł",
+    "path": "src/main/scala/database/books/DaVinci.txt"
+  },
+  {
+    "title": "Book2",
+    "price": "144423 zł",
+    "path": "src/main/scala/database/books/book2.txt"
+  },
+  {
+    "title": "Book8",
+    "price": "333 zł",
+    "path": "src/main/scala/database/books/book8.txt"
+  },
+  {
+    "title": "Book19",
+    "price": "222 zł",
+    "path": "src/main/scala/database/books/book3.txt"
+  }
+]
